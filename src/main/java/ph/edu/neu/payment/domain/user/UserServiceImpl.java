@@ -1,5 +1,7 @@
 package ph.edu.neu.payment.domain.user;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,6 +33,9 @@ public class UserServiceImpl implements UserService {
     private final PaymentService paymentService;
     private final AuditService audit;
     private final PasswordEncoder passwordEncoder;
+
+    @PersistenceContext
+    private EntityManager em;
 
     public UserServiceImpl(UserRepository users,
                            WalletRepository wallets,
@@ -68,6 +73,43 @@ public class UserServiceImpl implements UserService {
         return new AdminDtos.UserDetails(u.getId(), u.getFullName(), u.getEmail(),
                 u.getIdNumber(), u.getProgram(), u.getRole(), u.getStatus(),
                 balance, card, u.getCreatedAt(), u.getLastLoginAt());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AdminDtos.UserDetails detailsByIdNumber(String idNumber) {
+        User u = users.findByIdNumber(idNumber)
+                .orElseThrow(() -> new NotFoundException("User not found"));
+        return details(u.getId());
+    }
+
+    @Override
+    @Transactional
+    public void delete(UUID userId, UUID actorUserId) {
+        if (userId.equals(actorUserId)) {
+            throw new ph.edu.neu.payment.common.error.ForbiddenException("Cannot delete your own account");
+        }
+        User u = users.findById(userId).orElseThrow(() -> new NotFoundException("User not found"));
+
+        // Capture identifying details before deletion so the audit row is meaningful.
+        String detail = u.getRole().name() + " · " + u.getIdNumber();
+
+        // Null out non-cascading FK references that point at this user, so the
+        // historical paper trail (transactions, audit log entries, consumed QR
+        // tokens) survives the delete.
+        em.createNativeQuery("UPDATE transactions SET initiated_by_user = NULL WHERE initiated_by_user = :id")
+                .setParameter("id", userId)
+                .executeUpdate();
+        em.createNativeQuery("UPDATE qr_tokens SET consumed_by = NULL WHERE consumed_by = :id")
+                .setParameter("id", userId)
+                .executeUpdate();
+        em.createNativeQuery("UPDATE audit_logs SET actor_user_id = NULL WHERE actor_user_id = :id")
+                .setParameter("id", userId)
+                .executeUpdate();
+
+        users.deleteById(userId);
+
+        audit.record(actorUserId, "USER_DELETE", "User", userId.toString(), detail);
     }
 
     @Override

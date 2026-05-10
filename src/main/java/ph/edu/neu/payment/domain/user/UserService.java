@@ -13,6 +13,16 @@ public interface UserService {
 
     AdminDtos.UserDetails details(UUID userId);
 
+    AdminDtos.UserDetails detailsByIdNumber(String idNumber);
+
+    /**
+     * Permanently remove a user from the database — cascades wipe their wallet,
+     * QR tokens, refresh tokens, biometrics, and idempotency keys. Non-cascading
+     * FKs in transactions / qr_tokens.consumed_by / audit_logs.actor_user_id are
+     * nulled out so historical records survive.
+     */
+    void delete(UUID userId, UUID actorUserId);
+
     AdminDtos.UserDetails suspend(UUID userId, UUID actorUserId);
 
     AdminDtos.UserDetails reinstate(UUID userId, UUID actorUserId);

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -62,6 +63,28 @@ public class AdminController {
     @GetMapping("/users/{id}")
     public AdminDtos.UserDetails userDetails(@PathVariable UUID id) {
         return userService.details(id);
+    }
+
+    /**
+     * Resolve a user by their human-readable ID number. The dashboard prefers this
+     * lookup so internal UUIDs never appear in browser URLs / shareable links.
+     */
+    @GetMapping("/users/by-id-number/{idNumber}")
+    public AdminDtos.UserDetails userByIdNumber(@PathVariable String idNumber) {
+        return userService.detailsByIdNumber(idNumber);
+    }
+
+    /**
+     * Permanently delete a user. Their wallet, refresh tokens, biometric
+     * credentials, QR tokens, idempotency keys cascade away. References from
+     * historical transactions / audit logs / consumed QR tokens are nulled
+     * out so the receipt log is preserved.
+     */
+    @DeleteMapping("/users/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
+        userService.delete(id, CurrentUser.require().id());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/users/{id}/wallet")

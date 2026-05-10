@@ -14,6 +14,7 @@ import ph.edu.neu.payment.domain.user.UserRepository;
 import ph.edu.neu.payment.domain.user.UserRole;
 import ph.edu.neu.payment.domain.user.VerificationStatus;
 import ph.edu.neu.payment.domain.wallet.Wallet;
+import ph.edu.neu.payment.domain.wallet.WalletProvisioner;
 import ph.edu.neu.payment.domain.wallet.WalletRepository;
 
 import java.security.MessageDigest;
@@ -72,8 +73,9 @@ public class AuthServiceImpl implements AuthService {
         users.save(u);
 
         // Provision a wallet for the new user.
-        String cardNumber = generateCardNumber(req.idNumber());
-        Wallet w = new Wallet(u, cardNumber, OffsetDateTime.now().getYear() + 4);
+        Wallet w = new Wallet(u,
+                WalletProvisioner.cardNumberFor(req.idNumber()),
+                OffsetDateTime.now().getYear() + 4);
         wallets.save(w);
 
         audit.record(u.getId(), "USER_REGISTER", "User", u.getId().toString(), null);
@@ -171,19 +173,4 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    private static String generateCardNumber(String idNumber) {
-        // e.g. "2023-4402-8812"  →  "2023 • 4402 • 8812"
-        String digits = idNumber.replaceAll("[^0-9]", "");
-        if (digits.length() < 12) {
-            // pad with random digits if the ID is short.
-            byte[] buf = new byte[6];
-            RNG.nextBytes(buf);
-            StringBuilder sb = new StringBuilder(digits);
-            for (byte b : buf) sb.append(Math.floorMod(b, 10));
-            digits = sb.substring(0, Math.max(12, sb.length()));
-        }
-        return digits.substring(0, 4) + " • "
-                + digits.substring(4, 8) + " • "
-                + digits.substring(8, 12);
-    }
 }
