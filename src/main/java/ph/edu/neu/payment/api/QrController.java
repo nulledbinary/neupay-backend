@@ -39,4 +39,13 @@ public class QrController {
     public QrDtos.RedeemResponse redeem(@Valid @RequestBody QrDtos.RedeemRequest req) {
         return qrService.redeem(req.token(), CurrentUser.require().id());
     }
+
+    /** Non-consuming peek used by the iOS scanner before the user enters an amount. */
+    @PostMapping("/preview")
+    public QrDtos.PreviewResponse preview(@Valid @RequestBody QrDtos.PreviewRequest req) {
+        // Auth is required by SecurityConfig (no permitAll for /api/v1/qr/**),
+        // and CurrentUser.require() asserts the caller is signed in.
+        CurrentUser.require();
+        return qrService.preview(req.token());
+    }
 }

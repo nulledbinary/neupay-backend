@@ -23,4 +23,10 @@ public interface PaymentService {
      * Requires step-up auth on the cashier's session.
      */
     PaymentDtos.TransactionResult adminCredit(UUID cashierUserId, PaymentDtos.AdminTopUpRequest req);
+
+    /**
+     * Peer-to-peer transfer triggered by the iOS scanner: debit the caller,
+     * credit the QR holder. Single-use: the scanned token is consumed.
+     */
+    PaymentDtos.TransactionResult peerPay(UUID payerUserId, PaymentDtos.PeerPayRequest req);
 }

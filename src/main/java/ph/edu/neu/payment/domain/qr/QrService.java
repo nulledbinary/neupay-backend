@@ -14,4 +14,7 @@ public interface QrService {
 
     /** Cashier/terminal redeem: validates signature, expiry, single-use; returns scanned user. */
     QrDtos.RedeemResponse redeem(String compactToken, UUID redeemedByUserId);
+
+    /** Peek at a QR token's recipient without consuming it. */
+    QrDtos.PreviewResponse preview(String compactToken);
 }

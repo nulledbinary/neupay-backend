@@ -29,6 +29,13 @@ public final class PaymentDtos {
             @Digits(integer = 13, fraction = 2) BigDecimal amount,
             @NotBlank @Size(max = 160) String note) {}
 
+    /** Peer-to-peer pay: caller's wallet is debited, the QR holder's wallet is credited. */
+    public record PeerPayRequest(
+            @NotBlank String qrToken,
+            @NotNull @DecimalMin(value = "0.01", inclusive = true)
+            @Digits(integer = 13, fraction = 2) BigDecimal amount,
+            @NotBlank @Size(max = 160) String note) {}
+
     public record AdminTopUpRequest(
             @NotNull UUID userId,
             @NotNull @DecimalMin(value = "0.01", inclusive = true)

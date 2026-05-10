@@ -34,4 +34,11 @@ public class PaymentController {
     public PaymentDtos.TransactionResult cashTopUp(@Valid @RequestBody PaymentDtos.TopUpRequest req) {
         return payments.cashTopUp(CurrentUser.require().id(), req);
     }
+
+    /** Peer-to-peer pay: any signed-in user can scan another user's QR and send funds. */
+    @PostMapping("/pay")
+    @Idempotent
+    public PaymentDtos.TransactionResult peerPay(@Valid @RequestBody PaymentDtos.PeerPayRequest req) {
+        return payments.peerPay(CurrentUser.require().id(), req);
+    }
 }

@@ -84,10 +84,8 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthDtos.AuthResponse login(AuthDtos.LoginRequest req, String deviceId) {
-        String principal = req.email().trim();
-        User u = (principal.contains("@")
-                ? users.findByEmailIgnoreCase(principal)
-                : users.findByIdNumber(principal))
+        String principal = req.idNumber().trim();
+        User u = users.findByIdNumber(principal)
                 .orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
         if (!passwordEncoder.matches(req.password(), u.getPasswordHash()))
             throw new UnauthorizedException("Invalid credentials");

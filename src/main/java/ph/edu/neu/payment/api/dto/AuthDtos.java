@@ -22,13 +22,11 @@ public final class AuthDtos {
             @NotBlank @Size(min = 12, max = 128) String password) {}
 
     /**
-     * The {@code principal} field accepts either a NEU email address or a
-     * faculty / staff ID number. Kept under the historical {@code email}
-     * JSON key for iOS backward compatibility — the iOS app always sends an
-     * email, the web dashboard can send either.
+     * Login is by ID number only — the {@code email} legacy field is no
+     * longer accepted. iOS and the dashboard both send {@code idNumber}.
      */
     public record LoginRequest(
-            @NotBlank @Size(max = 255) String email,
+            @NotBlank @Size(min = 6, max = 32) String idNumber,
             @NotBlank String password) {}
 
     public record RefreshRequest(

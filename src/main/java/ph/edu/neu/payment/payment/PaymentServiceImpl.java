@@ -109,6 +109,56 @@ public class PaymentServiceImpl implements PaymentService {
         return creditWallet(req.userId(), cashierUserId, req.amount(), req.note(), TransactionCategory.TOP_UP);
     }
 
+    @Override
+    @Transactional
+    public PaymentDtos.TransactionResult peerPay(UUID payerUserId, PaymentDtos.PeerPayRequest req) {
+        if (req.amount().compareTo(props.payment().maxSinglePayment()) > 0)
+            throw new BadRequestException("Amount exceeds per-transaction limit");
+
+        QrDtos.RedeemResponse redeemed = qrService.redeem(req.qrToken(), payerUserId);
+        UUID payeeUserId = redeemed.userId();
+        if (payerUserId.equals(payeeUserId))
+            throw new BadRequestException("Cannot pay yourself");
+
+        // Lock both wallets in a stable order (lowest UUID first) to avoid deadlocks.
+        UUID firstUser  = payerUserId.compareTo(payeeUserId) < 0 ? payerUserId : payeeUserId;
+        UUID secondUser = payerUserId.equals(firstUser) ? payeeUserId : payerUserId;
+        Wallet first  = lockWallet(firstUser);
+        Wallet second = lockWallet(secondUser);
+        Wallet payer  = firstUser.equals(payerUserId) ? first : second;
+        Wallet payee  = firstUser.equals(payerUserId) ? second : first;
+
+        if (payer.getStatus() != WalletStatus.ACTIVE)
+            throw new BadRequestException("Your wallet is not active");
+        if (payee.getStatus() != WalletStatus.ACTIVE)
+            throw new BadRequestException("Recipient wallet not active");
+
+        BigDecimal payerNewBalance;
+        try {
+            payerNewBalance = payer.applyDelta(req.amount().negate());
+        } catch (IllegalStateException ex) {
+            if ("Insufficient funds".equals(ex.getMessage()))
+                throw new InsufficientFundsException(ex.getMessage());
+            throw new BadRequestException(ex.getMessage());
+        }
+        BigDecimal payeeNewBalance = payee.applyDelta(req.amount());
+
+        User payerUser = users.findById(payerUserId)
+                .orElseThrow(() -> new NotFoundException("Payer not found"));
+
+        String reference = generateReference("P2P");
+        Transaction debit  = new Transaction(payer, req.amount().negate(), req.note(),
+                TransactionCategory.TRANSFER, reference + "-D", payerNewBalance, payerUser, null);
+        Transaction credit = new Transaction(payee, req.amount(), req.note(),
+                TransactionCategory.TRANSFER, reference + "-C", payeeNewBalance, payerUser, null);
+        transactions.save(debit);
+        transactions.save(credit);
+
+        audit.record(payerUserId, "WALLET_TRANSFER",
+                "Wallet", payee.getId().toString(), reference);
+        return result(debit);
+    }
+
     private PaymentDtos.TransactionResult creditWallet(
             UUID payeeUserId, UUID cashierUserId, BigDecimal amount, String note, TransactionCategory category) {
 

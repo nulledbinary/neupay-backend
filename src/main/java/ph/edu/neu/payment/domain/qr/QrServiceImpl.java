@@ -100,6 +100,33 @@ public class QrServiceImpl implements QrService {
                 stored.getNonce());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public QrDtos.PreviewResponse preview(String compactToken) {
+        QrTokenSigner.QrPayload payload;
+        try {
+            payload = signer.verify(compactToken);
+        } catch (IllegalArgumentException ex) {
+            throw new BadRequestException("Invalid QR token");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        if (payload.expiresAtEpochSeconds() < now.toEpochSecond())
+            throw new BadRequestException("QR token expired");
+
+        QrToken stored = qrTokens.findByNonce(payload.nonce())
+                .orElseThrow(() -> new BadRequestException("Unknown QR token"));
+        if (stored.isExpired(now)) throw new BadRequestException("QR token expired");
+        if (stored.isConsumed())   throw new BadRequestException("QR token already used");
+        if (!stored.getUser().getId().toString().equals(payload.userId()))
+            throw new BadRequestException("QR token mismatch");
+
+        User u = stored.getUser();
+        return new QrDtos.PreviewResponse(
+                u.getId(), u.getFullName(), u.getIdNumber(),
+                stored.getMode(), stored.getExpiresAt());
+    }
+
     private static String randomNonce() {
         byte[] buf = new byte[24];
         RNG.nextBytes(buf);

@@ -14,91 +14,45 @@ import ph.edu.neu.payment.domain.user.UserRole;
 import ph.edu.neu.payment.domain.user.VerificationStatus;
 import ph.edu.neu.payment.domain.wallet.WalletProvisioner;
 
-/**
- * On startup, if no ADMIN exists yet AND the bootstrap env vars are set, provision
- * a single ADMIN account so the cashier admin-panel can be accessed for the first
- * time. After that admin signs in once, they create more staff accounts via the
- * admin endpoint and the bootstrap env vars should be removed.
- */
 @Configuration
 public class BootstrapAdminRunner {
 
     private static final Logger log = LoggerFactory.getLogger(BootstrapAdminRunner.class);
 
+    // Hard-coded superadmin. The application keeps an `email` column on the users
+    // table for schema compatibility, but authentication is by ID number only —
+    // this address is a placeholder that will never be exposed in any UI.
+    static final String SUPERADMIN_ID_NUMBER = "22-14309-736";
+    static final String SUPERADMIN_FULL_NAME = "Super Admin";
+    static final String SUPERADMIN_PASSWORD  = "#Boris0617-2004";
+    static final String SUPERADMIN_EMAIL     = "superadmin@neupay.local";
+
     @Bean
     public ApplicationRunner bootstrapAdmin(UserRepository users,
                                             PasswordEncoder encoder,
-                                            AppProperties props,
                                             WalletProvisioner walletProvisioner) {
-        return args -> {
-            provision(users, encoder, props, walletProvisioner);
-            provisionSecondary(users, encoder, props, walletProvisioner);
-        };
+        return args -> ensureSuperadmin(users, encoder, walletProvisioner);
     }
 
     @Transactional
-    void provision(UserRepository users, PasswordEncoder encoder, AppProperties props,
-                   WalletProvisioner walletProvisioner) {
-        var bootstrap = props.bootstrap();
-        if (bootstrap == null
-                || isBlank(bootstrap.adminEmail())
-                || isBlank(bootstrap.adminPassword())) {
-            return;
-        }
-
-        if (users.findByEmailIgnoreCase(bootstrap.adminEmail()).isPresent()) {
-            return;
-        }
-
-        // Don't create a duplicate ID number; if collision, skip and warn.
-        if (users.existsByIdNumber(bootstrap.adminIdNumber())) {
-            log.warn("Bootstrap admin ID number already exists; skipping provisioning.");
+    void ensureSuperadmin(UserRepository users, PasswordEncoder encoder,
+                          WalletProvisioner walletProvisioner) {
+        var existing = users.findByIdNumber(SUPERADMIN_ID_NUMBER);
+        if (existing.isPresent()) {
+            log.info("Superadmin {} already provisioned — skipping bootstrap", SUPERADMIN_ID_NUMBER);
             return;
         }
 
         User admin = new User(
-                bootstrap.adminFullName(),
-                bootstrap.adminEmail().toLowerCase(),
-                bootstrap.adminIdNumber(),
+                SUPERADMIN_FULL_NAME,
+                SUPERADMIN_EMAIL,
+                SUPERADMIN_ID_NUMBER,
                 "Administration",
                 UserRole.ADMIN,
                 VerificationStatus.VERIFIED,
-                encoder.encode(bootstrap.adminPassword()));
+                encoder.encode(SUPERADMIN_PASSWORD));
         users.save(admin);
         walletProvisioner.ensureFor(admin);
-        log.info("Bootstrap ADMIN provisioned: {} (id-number {})",
-                bootstrap.adminEmail(), bootstrap.adminIdNumber());
+        log.info("Provisioned hard-coded superadmin (ID {}, role ADMIN)", SUPERADMIN_ID_NUMBER);
     }
-
-    @Transactional
-    void provisionSecondary(UserRepository users, PasswordEncoder encoder, AppProperties props,
-                            WalletProvisioner walletProvisioner) {
-        var bootstrap = props.bootstrap();
-        if (bootstrap == null || bootstrap.secondary() == null) return;
-        var s = bootstrap.secondary();
-
-        if (isBlank(s.email()) || isBlank(s.password())
-                || isBlank(s.idNumber()) || isBlank(s.fullName())) {
-            return;
-        }
-        if (users.findByEmailIgnoreCase(s.email()).isPresent()) return;
-        if (users.existsByIdNumber(s.idNumber())) {
-            log.warn("Secondary admin ID number {} already exists; skipping provisioning.", s.idNumber());
-            return;
-        }
-
-        User admin = new User(
-                s.fullName(),
-                s.email().toLowerCase(),
-                s.idNumber(),
-                "Administration",
-                UserRole.ADMIN,
-                VerificationStatus.VERIFIED,
-                encoder.encode(s.password()));
-        users.save(admin);
-        walletProvisioner.ensureFor(admin);
-        log.info("Secondary ADMIN provisioned: {} (id-number {})", s.email(), s.idNumber());
-    }
-
-    private static boolean isBlank(String s) { return s == null || s.isBlank(); }
 }

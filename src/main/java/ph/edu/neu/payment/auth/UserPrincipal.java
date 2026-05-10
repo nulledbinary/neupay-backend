@@ -14,13 +14,13 @@ import java.util.UUID;
 
 public record UserPrincipal(
         UUID id,
-        String email,
+        String idNumber,
         String passwordHash,
         UserRole role,
         VerificationStatus status) implements UserDetails {
 
     public static UserPrincipal from(User u) {
-        return new UserPrincipal(u.getId(), u.getEmail(), u.getPasswordHash(), u.getRole(), u.getStatus());
+        return new UserPrincipal(u.getId(), u.getIdNumber(), u.getPasswordHash(), u.getRole(), u.getStatus());
     }
 
     @Override
@@ -29,7 +29,7 @@ public record UserPrincipal(
     }
 
     @Override public String getPassword() { return passwordHash; }
-    @Override public String getUsername() { return email; }
+    @Override public String getUsername() { return idNumber; }
     @Override public boolean isAccountNonExpired() { return true; }
     @Override public boolean isAccountNonLocked() { return status != VerificationStatus.SUSPENDED; }
     @Override public boolean isCredentialsNonExpired() { return true; }

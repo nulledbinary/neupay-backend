@@ -29,4 +29,14 @@ public final class QrDtos {
             String idNumber,
             QrMode mode,
             String tokenReference) {}
+
+    /** Non-consuming preview used by the iOS scanner before the user confirms an amount. */
+    public record PreviewRequest(@NotBlank String token) {}
+
+    public record PreviewResponse(
+            UUID userId,
+            String userFullName,
+            String idNumber,
+            QrMode mode,
+            OffsetDateTime expiresAt) {}
 }
