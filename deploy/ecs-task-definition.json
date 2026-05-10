@@ -20,7 +20,7 @@
       { "name": "DB_HOST", "value": "neupay.cj80swsm677v.ap-southeast-1.rds.amazonaws.com" },
       { "name": "DB_PORT", "value": "5432" },
       { "name": "DB_NAME", "value": "neupay" },
-      { "name": "NEU_CORS_ALLOWED_ORIGINS", "value": "https://neu.edu.ph" }
+      { "name": "NEU_CORS_ALLOWED_ORIGINS", "value": "https://main.d3vy9qmqxqs29m.amplifyapp.com" }
     ],
     "secrets": [
       { "name": "DB_USER",            "valueFrom": "arn:aws:secretsmanager:ap-southeast-1:542508027319:secret:neu/payment/db-creds-CuCOcw:username::" },
